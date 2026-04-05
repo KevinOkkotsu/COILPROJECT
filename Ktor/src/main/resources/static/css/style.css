@@ -1,0 +1,100 @@
+/* ============================================================
+   Environmental Monitoring Dashboard — Global Styles
+   WCAG 2.1 Level AA target. Colour contrast checked.
+   ============================================================ */
+
+/* --- Reset & Base ----------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --color-bg:         #f4f6f9;
+    --color-surface:    #ffffff;
+    --color-border:     #dde1e7;
+    --color-text:       #1a1d23;
+    --color-text-muted: #5c6370;
+    --color-primary:    #1a6fc4;
+    --color-primary-hover: #155aa0;
+    --color-normal:     #1e7e4a;
+    --color-warning:    #b45309;
+    --color-critical:   #c0392b;
+    --font-base: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --radius: 8px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+body { font-family: var(--font-base); background: var(--color-bg); color: var(--color-text); line-height: 1.6; min-height: 100vh; }
+a { color: var(--color-primary); text-decoration: none; }
+a:hover, a:focus { text-decoration: underline; }
+
+/* --- Skip link -------------------------------------------- */
+.skip-link { position: absolute; top: -100%; left: 0; background: var(--color-primary); color: #fff; padding: 8px 16px; z-index: 9999; border-radius: 0 0 var(--radius) 0; }
+.skip-link:focus { top: 0; }
+
+/* --- Nav -------------------------------------------------- */
+.nav { background: var(--color-surface); border-bottom: 1px solid var(--color-border); padding: 0 24px; display: flex; align-items: center; gap: 32px; height: 56px; box-shadow: var(--shadow); }
+.nav__logo { font-weight: 700; font-size: 1rem; color: var(--color-text); }
+.nav__links { display: flex; gap: 4px; list-style: none; }
+.nav__links a { display: block; padding: 6px 12px; border-radius: var(--radius); font-size: 0.9rem; color: var(--color-text-muted); transition: background 0.15s, color 0.15s; }
+.nav__links a:hover, .nav__links a:focus, .nav__links a[aria-current="page"] { background: #eef3fb; color: var(--color-primary); text-decoration: none; }
+
+/* --- Layout ----------------------------------------------- */
+.main { max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; }
+
+/* --- Cards ------------------------------------------------ */
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px 24px; }
+.card__title { font-size: 1rem; font-weight: 600; margin-bottom: 12px; color: var(--color-text); }
+
+/* --- Grid ------------------------------------------------- */
+.grid { display: grid; gap: 16px; }
+.grid--2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid--3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+/* --- Severity badges -------------------------------------- */
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; padding: 3px 10px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+.badge--normal   { background: #d1fae5; color: var(--color-normal);   }
+.badge--warning  { background: #fef3c7; color: var(--color-warning);  }
+.badge--critical { background: #fee2e2; color: var(--color-critical); }
+
+/* --- Status indicator ------------------------------------- */
+.status-indicator { font-size: 1.5rem; font-weight: 700; padding: 12px 24px; border-radius: var(--radius); display: inline-block; }
+.status-indicator--normal   { background: #d1fae5; color: var(--color-normal);   }
+.status-indicator--warning  { background: #fef3c7; color: var(--color-warning);  }
+.status-indicator--critical { background: #fee2e2; color: var(--color-critical); }
+
+/* --- Alert items ------------------------------------------ */
+.alert-item { border-left: 4px solid var(--color-border); padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin-bottom: 8px; background: var(--color-surface); }
+.alert-item--warning  { border-left-color: var(--color-warning);  background: #fffbeb; }
+.alert-item--critical { border-left-color: var(--color-critical); background: #fff5f5; }
+.alert-item__message { font-size: 0.9rem; color: var(--color-text); margin-bottom: 4px; }
+.alert-item__meta    { font-size: 0.8rem; color: var(--color-text-muted); }
+
+/* --- States ----------------------------------------------- */
+.state-empty, .state-error { text-align: center; padding: 48px 24px; color: var(--color-text-muted); font-size: 0.95rem; }
+.state-error { color: var(--color-critical); }
+
+/* --- Filters ---------------------------------------------- */
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 20px; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 0.8rem; font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.filter-group select, .filter-group input[type="date"] { padding: 7px 10px; border: 1px solid var(--color-border); border-radius: var(--radius); font-size: 0.9rem; background: var(--color-surface); color: var(--color-text); cursor: pointer; }
+.filter-group select:focus, .filter-group input[type="date"]:focus { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* --- Buttons ---------------------------------------------- */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s; }
+.btn--primary { background: var(--color-primary); color: #fff; }
+.btn--primary:hover, .btn--primary:focus { background: var(--color-primary-hover); }
+.btn--secondary { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); }
+.btn--secondary:hover, .btn--secondary:focus { background: var(--color-bg); }
+
+/* --- Table ------------------------------------------------ */
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.data-table th { text-align: left; padding: 10px 12px; background: var(--color-bg); border-bottom: 2px solid var(--color-border); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* --- Chart ------------------------------------------------ */
+.chart-container { position: relative; width: 100%; height: 320px; }
+
+/* --- Responsive ------------------------------------------- */
+@media (max-width: 768px) { .nav { gap: 16px; padding: 0 16px; } .main { padding: 16px 16px 32px; } .filters { flex-direction: column; } }
+@media (max-width: 375px) { .nav__links a { font-size: 0.8rem; padding: 4px 8px; } }

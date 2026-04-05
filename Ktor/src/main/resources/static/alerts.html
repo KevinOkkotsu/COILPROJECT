@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alerts — Environmental Monitoring</title>
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<nav class="nav" aria-label="Main navigation">
+    <span class="nav__logo">🌿 EnvMonitor</span>
+    <ul class="nav__links">
+        <li><a href="/index.html">Dashboard</a></li>
+        <li><a href="/trends.html">Trends</a></li>
+        <li><a href="/alerts.html" aria-current="page">Alerts</a></li>
+        <li><a href="/portal.html">Portal</a></li>
+    </ul>
+</nav>
+
+<main id="main-content" class="main">
+
+    <h1 style="margin-bottom: 20px; font-size: 1.4rem;">Active Alerts</h1>
+
+    <div class="filters" role="search" aria-label="Filter alerts">
+        <div class="filter-group">
+            <label for="site-select">Site</label>
+            <select id="site-select"><option value="">All sites</option></select>
+        </div>
+        <div class="filter-group">
+            <label for="severity-select">Severity</label>
+            <select id="severity-select">
+                <option value="">All severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="WARNING">Warning</option>
+            </select>
+        </div>
+        <div class="filter-group" style="justify-content: flex-end;">
+            <button class="btn btn--primary" id="apply-btn">Apply</button>
+        </div>
+    </div>
+
+    <section aria-labelledby="alerts-heading" aria-live="polite">
+        <h2 id="alerts-heading" style="font-size: 1rem; font-weight: 600; margin-bottom: 12px;">Alert Log</h2>
+        <div id="alerts-list"><p class="state-empty">Loading alerts…</p></div>
+    </section>
+
+</main>
+
+<script type="module">
+    import { fetchAlerts } from "/js/api.js";
+    import { severityClass, showError, showEmpty, populateSiteSelector } from "/js/main.js";
+
+    const siteSelect     = document.getElementById("site-select");
+    const severitySelect = document.getElementById("severity-select");
+    const applyBtn       = document.getElementById("apply-btn");
+    const alertsList     = document.getElementById("alerts-list");
+
+    await populateSiteSelector(siteSelect);
+
+    async function loadAlerts() {
+        try {
+            const alerts = await fetchAlerts(siteSelect.value || null, severitySelect.value || null);
+            if (alerts.length === 0) { showEmpty(alertsList, "No active alerts matching the selected filters."); return; }
+            alertsList.innerHTML = alerts.map(a => `
+                <div class="alert-item alert-item--${severityClass(a.severity)}" role="listitem">
+                    <p class="alert-item__message">${a.message}</p>
+                    <p class="alert-item__meta">
+                        <span class="badge badge--${severityClass(a.severity)}">${a.severity}</span>
+                        &nbsp;<strong>${a.sensorType.replace(/_/g, " ")}</strong> · Site: ${a.siteId} · ${a.timestamp}
+                    </p>
+                </div>`).join("");
+        } catch {
+            showError(alertsList, "Could not load alerts. Please check your connection and try again.");
+        }
+    }
+
+    applyBtn.addEventListener("click", loadAlerts);
+    loadAlerts();
+</script>
+
+</body>
+</html>
