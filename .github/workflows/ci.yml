@@ -1,1 +1,36 @@
-# CI Workflow for Environmental Monitoring Dashboard
+name: "Environmental Monitoring Dashboard CI"
+
+on:
+  push:
+    branches:
+      - "main"
+      - "develop"
+  pull_request:
+    branches:
+      - "main"
+      - "develop"
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Placeholder - backend setup
+        run: |
+          echo "No backend project setup commands yet. Replace this with Gradle/Ktor setup when available."
+        working-directory: Ktor
+
+      - name: Placeholder - backend tests
+        run: |
+          echo "TODO: insert backend test command (e.g., ./gradlew test) once the suite exists."
+        working-directory: Ktor
+
+      - name: Placeholder - frontend tests
+        run: |
+          echo "TODO: insert frontend test suite (e.g., npm run test) once the repo has frontend assets."
+
+      - name: Placeholder summary
+        run: |
+          echo "CI is waiting for concrete build/test steps. Update this workflow with the real commands when ready."
