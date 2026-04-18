@@ -37,7 +37,8 @@ object AlertsLog: Table(){
     val readingId = reference("reading_id", WaterQualityReadings.id)
     val siteId = varchar("site_id",50)
     val parameter = varchar("parameter",50)
-    val severity = varchar("message",255)
+    val severity = varchar("severity",20)
+    val message = varchar("message", 255)
     val timeStamp = datetime("timestamp")
     override val primaryKey = PrimaryKey(id)
 }
