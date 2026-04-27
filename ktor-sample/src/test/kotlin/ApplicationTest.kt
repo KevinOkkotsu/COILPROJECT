@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ApplicationTest {
-
+    // what to do: implement tests
     @Test
     fun testRoot() = testApplication {
         application {
