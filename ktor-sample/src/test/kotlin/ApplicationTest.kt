@@ -13,16 +13,15 @@ import kotlin.test.assertTrue
 
 class ApplicationTest {
 
+    // a normal, healthy livestock reading , no alerts should be raised
     private val validPayload = """
         {
-            "siteId": "site_upstream",
+            "siteId": "herd_cattle_A",
             "timeStamp": "2025-05-01T08:00:00",
-            "pH": 7.2,
-            "turbidityNtu": 2.0,
-            "conductivityPerCm": 300.0,
-            "waterTempC": 15.0,
-            "waterLvlCm": 45.0,
-            "lightLux": 800.0
+            "latitude": -32.77,
+            "longitude": 26.84,
+            "accelMagG": 1.0,
+            "ambientTemperatureC": 20.0
         }
     """.trimIndent()
 
@@ -34,20 +33,22 @@ class ApplicationTest {
      */
     @BeforeTest
     fun clearTables() {
-        // We need the app to have initialised the DB at least once
-        // before we can clear it. testApplication handles that, but
-        // @BeforeTest runs outside of it — so we guard with a try/catch.
+        /**
+         * We need the app to have initialised the DB at least once before we can clear it.
+         *  testApplication handles that, but @BeforeTest runs outside of it
+         * , so we guard with a try/catch.
+         **/
         try {
             transaction {
                 AlertsLog.deleteAll()
-                WaterQualityReadings.deleteAll()
+                LivestockReadings.deleteAll()
             }
         } catch (e: Exception) {
-            // Tables may not exist yet on the very first run — that is fine
+            // Tables may not exist yet on the very first run , that is fine
         }
     }
 
-    // ─── Root ────────────────────────────────────────────────────
+    // Root
 
     @Test
     fun `GET root returns 200 or redirect`() = testApplication {
@@ -59,7 +60,7 @@ class ApplicationTest {
         )
     }
 
-    // ─── POST /api/ingest — happy path ───────────────────────────
+    // POST /api/ingest , happy path
 
     @Test
     fun `POST ingest with valid payload returns 201`() = testApplication {
@@ -87,10 +88,11 @@ class ApplicationTest {
     }
 
     @Test
-    fun `POST ingest critical pH returns derived status critical`() = testApplication {
+    fun `POST ingest critical temperature returns derived status critical`() = testApplication {
         application { module() }
 
-        val criticalPayload = validPayload.replace("\"pH\": 7.2", "\"pH\": 5.0")
+        // 38°C is above the critical threshold of 35°C
+        val criticalPayload = validPayload.replace("\"ambientTemperatureC\": 20.0", "\"ambientTemperatureC\": 38.0")
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
@@ -102,10 +104,11 @@ class ApplicationTest {
     }
 
     @Test
-    fun `POST ingest warning pH returns derived status warning`() = testApplication {
+    fun `POST ingest warning temperature returns derived status warning`() = testApplication {
         application { module() }
 
-        val warningPayload = validPayload.replace("\"pH\": 7.2", "\"pH\": 6.3")
+        // 32°C is between the warning (30°C) and critical (35°C) thresholds
+        val warningPayload = validPayload.replace("\"ambientTemperatureC\": 20.0", "\"ambientTemperatureC\": 32.0")
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
@@ -116,39 +119,83 @@ class ApplicationTest {
         assertTrue(response.bodyAsText().contains("warning"))
     }
 
-    // ─── POST /api/ingest — validation failures ───────────────────
+    @Test
+    fun `POST ingest critical low activity returns derived status critical`() = testApplication {
+        application { module() }
+
+        // 0.1g is below the critical low-activity threshold of 0.3g
+        val criticalPayload = validPayload.replace("\"accelMagG\": 1.0", "\"accelMagG\": 0.1")
+
+        val response = client.post("/api/ingest") {
+            contentType(ContentType.Application.Json)
+            setBody(criticalPayload)
+        }
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertTrue(response.bodyAsText().contains("critical"))
+    }
 
     @Test
-    fun `POST ingest with negative pH returns 400`() = testApplication {
+    fun `POST ingest flee event returns derived status critical`() = testApplication {
+        application { module() }
+
+        // 5.0g is above the critical flee threshold of 4.0g
+        val fleePayload = validPayload.replace("\"accelMagG\": 1.0", "\"accelMagG\": 5.0")
+
+        val response = client.post("/api/ingest") {
+            contentType(ContentType.Application.Json)
+            setBody(fleePayload)
+        }
+
+        assertEquals(HttpStatusCode.Created, response.status)
+        assertTrue(response.bodyAsText().contains("critical"))
+    }
+
+    // POST /api/ingest , validation failures
+
+    @Test
+    fun `POST ingest with negative accelMagG returns 400`() = testApplication {
         application { module() }
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"pH\": 7.2", "\"pH\": -1.0"))
+            setBody(validPayload.replace("\"accelMagG\": 1.0", "\"accelMagG\": -1.0"))
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test
-    fun `POST ingest with pH above 14 returns 400`() = testApplication {
+    fun `POST ingest with latitude out of range returns 400`() = testApplication {
         application { module() }
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"pH\": 7.2", "\"pH\": 15.0"))
+            setBody(validPayload.replace("\"latitude\": -32.77", "\"latitude\": -200.0"))
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
     @Test
-    fun `POST ingest with negative turbidity returns 400`() = testApplication {
+    fun `POST ingest with longitude out of range returns 400`() = testApplication {
         application { module() }
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"turbidityNtu\": 2.0", "\"turbidityNtu\": -5.0"))
+            setBody(validPayload.replace("\"longitude\": 26.84", "\"longitude\": 999.0"))
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `POST ingest with temperature out of physical range returns 400`() = testApplication {
+        application { module() }
+
+        val response = client.post("/api/ingest") {
+            contentType(ContentType.Application.Json)
+            setBody(validPayload.replace("\"ambientTemperatureC\": 20.0", "\"ambientTemperatureC\": 100.0"))
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
@@ -160,7 +207,7 @@ class ApplicationTest {
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"siteId\": \"site_upstream\"", "\"siteId\": \"site_ghost\""))
+            setBody(validPayload.replace("\"siteId\": \"herd_cattle_A\"", "\"siteId\": \"herd_ghost\""))
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
@@ -185,13 +232,13 @@ class ApplicationTest {
 
         val response = client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody("""{"siteId": "site_upstream"}""")
+            setBody("""{"siteId": "herd_cattle_A"}""")
         }
 
         assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
-    // ─── GET /api/alerts ─────────────────────────────────────────
+    // GET /api/alerts
 
     @Test
     fun `GET alerts returns 200 and a JSON array`() = testApplication {
@@ -205,31 +252,31 @@ class ApplicationTest {
     }
 
     @Test
-    fun `GET alerts after ingest with critical reading contains an alert`() = testApplication {
+    fun `GET alerts after ingest with critical temperature contains an alert`() = testApplication {
         application { module() }
 
         client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"pH\": 7.2", "\"pH\": 5.0"))
+            setBody(validPayload.replace("\"ambientTemperatureC\": 20.0", "\"ambientTemperatureC\": 38.0"))
         }
 
         val body = client.get("/api/alerts").bodyAsText()
         assertTrue(body.contains("critical"))
-        assertTrue(body.contains("site_upstream"))
+        assertTrue(body.contains("herd_cattle_A"))
     }
 
     @Test
     fun `GET alerts filtered by site returns only that site`() = testApplication {
         application { module() }
 
-        // Ingest a critical reading for site_upstream only
+        // Ingest a critical reading for herd_cattle_A only
         client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"pH\": 7.2", "\"pH\": 5.0"))
+            setBody(validPayload.replace("\"ambientTemperatureC\": 20.0", "\"ambientTemperatureC\": 38.0"))
         }
 
-        // Filter to site_downstream — should return empty array
-        val response = client.get("/api/alerts?site=site_downstream")
+        // Filter to herd_goat_B , should return empty array
+        val response = client.get("/api/alerts?site=herd_goat_B")
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals("[]", response.bodyAsText().trim())
     }
@@ -240,7 +287,7 @@ class ApplicationTest {
 
         client.post("/api/ingest") {
             contentType(ContentType.Application.Json)
-            setBody(validPayload.replace("\"pH\": 7.2", "\"pH\": 5.0"))
+            setBody(validPayload.replace("\"ambientTemperatureC\": 20.0", "\"ambientTemperatureC\": 38.0"))
         }
 
         val body = client.get("/api/alerts?severity=critical").bodyAsText()
@@ -261,7 +308,7 @@ class ApplicationTest {
         assertEquals("[]", response.bodyAsText().trim())
     }
 
-    // ─── GET /api/readings ────────────────────────────────────────
+    // GET /api/readings
 
     @Test
     fun `GET readings without site param returns 400`() = testApplication {
@@ -276,7 +323,7 @@ class ApplicationTest {
     fun `GET readings for unknown site returns 404`() = testApplication {
         application { module() }
 
-        val response = client.get("/api/readings?site=site_ghost")
+        val response = client.get("/api/readings?site=herd_ghost")
         assertEquals(HttpStatusCode.NotFound, response.status)
     }
 
@@ -286,7 +333,7 @@ class ApplicationTest {
 
         transaction {
             AlertsLog.deleteAll()
-            WaterQualityReadings.deleteAll()
+            LivestockReadings.deleteAll()
         }
 
         val ingestResponse = client.post("/api/ingest") {
@@ -299,7 +346,7 @@ class ApplicationTest {
         println("INGEST STATUS: ${ingestResponse.status}")
         println("INGEST BODY: $ingestBody")
 
-        val response = client.get("/api/readings?site=site_upstream")
+        val response = client.get("/api/readings?site=herd_cattle_A")
         val body = response.bodyAsText()
 
         println("READINGS STATUS: ${response.status}")
@@ -307,15 +354,15 @@ class ApplicationTest {
 
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(body.startsWith("["), "Expected JSON array but got: $body")
-        assertTrue(body.contains("site_upstream"), "Expected siteId in body but got: $body")
+        assertTrue(body.contains("herd_cattle_A"), "Expected siteId in body but got: $body")
     }
 
     @Test
     fun `GET readings for valid site with no data returns empty array`() = testApplication {
         application { module() }
 
-        // site_reservoir exists but we cleared all readings in @BeforeTest
-        val response = client.get("/api/readings?site=site_reservoir")
+        // herd_goat_B exists but we cleared all readings in @BeforeTest
+        val response = client.get("/api/readings?site=herd_goat_B")
         assertEquals(HttpStatusCode.OK, response.status)
         assertEquals("[]", response.bodyAsText().trim())
     }
@@ -324,12 +371,12 @@ class ApplicationTest {
     fun `GET readings with invalid from date returns 400`() = testApplication {
         application { module() }
 
-        val response = client.get("/api/readings?site=site_upstream&from=not-a-date")
+        val response = client.get("/api/readings?site=herd_cattle_A&from=not-a-date")
         assertEquals(HttpStatusCode.BadRequest, response.status)
         assertTrue(response.bodyAsText().contains("from"))
     }
 
-    // ─── GET /api/sites ───────────────────────────────────────────
+    // GET /api/sites
 
     @Test
     fun `GET sites returns 200 and contains seeded sites`() = testApplication {
@@ -339,68 +386,80 @@ class ApplicationTest {
         assertEquals(HttpStatusCode.OK, response.status)
 
         val body = response.bodyAsText()
-        assertTrue(body.contains("site_upstream"))
-        assertTrue(body.contains("site_downstream"))
-        assertTrue(body.contains("site_reservoir"))
+        assertTrue(body.contains("herd_cattle_A"))
+        assertTrue(body.contains("herd_goat_B"))
     }
 
-    // ─── AlertEngine unit tests ───────────────────────────────────
+    // AlertEngine unit tests
 
     @Test
     fun `AlertEngine normal reading returns normal status and no alerts`() {
-        val data = WaterQualityPayload(
-            siteId = "site_upstream", timeStamp = "2025-05-01T08:00:00",
-            pH = 7.2, turbidityNtu = 1.0, conductivityPerCm = 200.0,
-            waterTempC = 15.0, waterLvlCm = 45.0, lightLux = 500.0
+        val data = LivestockPayload(
+            siteId = "herd_cattle_A", timeStamp = "2025-05-01T08:00:00",
+            latitude = -32.77, longitude = 26.84,
+            accelMagG = 1.0, ambientTemperatureC = 20.0
         )
-        val result = AlertEngine.evaluateWaterQuality(data)
+        val result = AlertEngine.evaluateLivestock(data)
         assertEquals("normal", result.status)
         assertTrue(result.alerts.isEmpty())
     }
 
     @Test
-    fun `AlertEngine pH below 6_0 returns critical`() {
-        val data = WaterQualityPayload(
-            siteId = "site_upstream", timeStamp = "2025-05-01T08:00:00",
-            pH = 5.5, turbidityNtu = 1.0, conductivityPerCm = 200.0,
-            waterTempC = 15.0, waterLvlCm = 45.0, lightLux = 500.0
+    fun `AlertEngine temperature above 35 returns critical`() {
+        val data = LivestockPayload(
+            siteId = "herd_cattle_A", timeStamp = "2025-05-01T08:00:00",
+            latitude = -32.77, longitude = 26.84,
+            accelMagG = 1.0, ambientTemperatureC = 38.0
         )
-        val result = AlertEngine.evaluateWaterQuality(data)
+        val result = AlertEngine.evaluateLivestock(data)
         assertEquals("critical", result.status)
-        assertTrue(result.alerts.any { it.parameter == "pH" && it.severity == "critical" })
+        assertTrue(result.alerts.any { it.parameter == "temperature" && it.severity == "critical" })
     }
 
     @Test
-    fun `AlertEngine pH between 6_0 and 6_5 returns warning`() {
-        val data = WaterQualityPayload(
-            siteId = "site_upstream", timeStamp = "2025-05-01T08:00:00",
-            pH = 6.3, turbidityNtu = 1.0, conductivityPerCm = 200.0,
-            waterTempC = 15.0, waterLvlCm = 45.0, lightLux = 500.0
+    fun `AlertEngine temperature between 30 and 35 returns warning`() {
+        val data = LivestockPayload(
+            siteId = "herd_cattle_A", timeStamp = "2025-05-01T08:00:00",
+            latitude = -32.77, longitude = 26.84,
+            accelMagG = 1.0, ambientTemperatureC = 32.0
         )
-        val result = AlertEngine.evaluateWaterQuality(data)
+        val result = AlertEngine.evaluateLivestock(data)
         assertEquals("warning", result.status)
+        assertTrue(result.alerts.any { it.parameter == "temperature" && it.severity == "warning" })
     }
 
     @Test
-    fun `AlertEngine turbidity above 10 returns critical`() {
-        val data = WaterQualityPayload(
-            siteId = "site_upstream", timeStamp = "2025-05-01T08:00:00",
-            pH = 7.0, turbidityNtu = 11.0, conductivityPerCm = 200.0,
-            waterTempC = 15.0, waterLvlCm = 45.0, lightLux = 500.0
+    fun `AlertEngine accelMagG below 0_3 returns critical low activity`() {
+        val data = LivestockPayload(
+            siteId = "herd_cattle_A", timeStamp = "2025-05-01T08:00:00",
+            latitude = -32.77, longitude = 26.84,
+            accelMagG = 0.1, ambientTemperatureC = 20.0
         )
-        val result = AlertEngine.evaluateWaterQuality(data)
+        val result = AlertEngine.evaluateLivestock(data)
         assertEquals("critical", result.status)
-        assertTrue(result.alerts.any { it.parameter == "turbidity" && it.severity == "critical" })
+        assertTrue(result.alerts.any { it.parameter == "low_activity" && it.severity == "critical" })
     }
 
     @Test
-    fun `AlertEngine combined turbidity and conductivity spike adds contamination alert`() {
-        val data = WaterQualityPayload(
-            siteId = "site_upstream", timeStamp = "2025-05-01T08:00:00",
-            pH = 7.0, turbidityNtu = 6.0, conductivityPerCm = 600.0,
-            waterTempC = 15.0, waterLvlCm = 45.0, lightLux = 500.0
+    fun `AlertEngine accelMagG above 4 returns critical flee`() {
+        val data = LivestockPayload(
+            siteId = "herd_cattle_A", timeStamp = "2025-05-01T08:00:00",
+            latitude = -32.77, longitude = 26.84,
+            accelMagG = 5.0, ambientTemperatureC = 20.0
         )
-        val result = AlertEngine.evaluateWaterQuality(data)
-        assertTrue(result.alerts.any { it.parameter == "contamination" })
+        val result = AlertEngine.evaluateLivestock(data)
+        assertEquals("critical", result.status)
+        assertTrue(result.alerts.any { it.parameter == "flee" && it.severity == "critical" })
+    }
+
+    @Test
+    fun `AlertEngine combined high temperature and low activity adds heat collapse alert`() {
+        val data = LivestockPayload(
+            siteId = "herd_cattle_A", timeStamp = "2025-05-01T08:00:00",
+            latitude = -32.77, longitude = 26.84,
+            accelMagG = 0.4, ambientTemperatureC = 33.0
+        )
+        val result = AlertEngine.evaluateLivestock(data)
+        assertTrue(result.alerts.any { it.parameter == "heat_collapse" })
     }
 }
