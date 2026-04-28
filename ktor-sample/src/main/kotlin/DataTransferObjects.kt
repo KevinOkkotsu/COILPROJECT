@@ -26,3 +26,17 @@ data class AlertDTO(
     val message: String,
     val timeStamp: String
 )
+
+@Serializable
+data class ReadingDTO(
+    val id: Int,
+    val siteId: String,
+    val timeStamp: String,
+    val pH: Double,
+    val turbidityNtu: Double,
+    val conductivityPerCm: Double,
+    val waterTempC: Double,
+    val waterLvlCm: Double,
+    val lightLux: Double,
+    val status: String
+)
